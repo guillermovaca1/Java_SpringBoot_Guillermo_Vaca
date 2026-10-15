@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Rendimiento | Spring Cache</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --bg-color: #F3F4F6;
+            --card-bg: #FFFFFF;
+            --text-main: #1F2937;
+            --text-muted: #6B7280;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --border-color: #E2E8F0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 30px;
+            max-width: 900px;
+            width: 90%;
+            padding: 40px 0;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+
+        .history-card {
+            padding: 30px 20px;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            max-height: 500px;
+        }
+
+        h1, h2 {
+            margin-top: 0;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        h1 { font-size: 24px; }
+        h2 { font-size: 18px; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+
+        p {
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn:disabled {
+            background-color: #9CA3AF;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .result-box {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 12px;
+            background-color: #F8FAFC;
+            border: 2px dashed var(--border-color);
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transform: scale(0.95);
+            transition: all 0.3s ease;
+        }
+
+        .result-box.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: white;
+        }
+
+        .badge.db { background-color: var(--warning); }
+        .badge.cache { background-color: var(--success); }
+
+        .time-text {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Estilos del historial */
+        .history-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .history-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .history-list::-webkit-scrollbar-thumb {
+            background-color: #CBD5E1;
+            border-radius: 10px;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-icon {
+            font-size: 18px;
+            margin-right: 10px;
+        }
+
+        .history-details {
+            display: flex;
+            align-items: center;
+        }
+
+        .history-time {
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .empty-history {
+            color: var(--text-muted);
+            text-align: center;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Columna Izquierda: Panel de Acción -->
+        <div class="card">
+            <h1>⚡ Test de Rendimiento</h1>
+            <p>Compara el tiempo de respuesta accediendo directamente a la base de datos H2 vs. la memoria Caché de Spring Boot.</p>
+            
+            <button id="actionBtn" class="btn" onclick="consultarRegistros()">
+                <span id="btnText">Ejecutar Consulta (100k registros)</span>
+                <div id="spinner" class="spinner"></div>
+            </button>
+
+            <div id="resultBox" class="result-box">
+                <div id="badge" class="badge" style="display: none;"></div>
+                <div id="timeText" class="time-text">Esperando ejecución...</div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Historial -->
+        <div class="card history-card">
+            <h2>Registros de Consultas</h2>
+            <div id="emptyHistory" class="empty-history">Aún no hay consultas registradas.</div>
+            <ul id="historyList" class="history-list"></ul>
+        </div>
+    </div>
+
+    <script>
+        let contadorConsultas = 0;
+
+        function consultarRegistros() {
+            const btn = document.getElementById('actionBtn');
+            const btnText = document.getElementById('btnText');
+            const spinner = document.getElementById('spinner');
+            const resultBox = document.getElementById('resultBox');
+            const badge = document.getElementById('badge');
+            const timeText = document.getElementById('timeText');
+            const historyList = document.getElementById('historyList');
+            const emptyHistory = document.getElementById('emptyHistory');
+
+            btn.disabled = true;
+            btnText.innerText = "Consultando...";
+            spinner.style.display = "block";
+            resultBox.classList.remove('show');
+            badge.style.display = "none";
+
+            fetch('http://localhost:8080/test-tiempo')
+                .then(response => {
+                    if (!response.ok) throw new Error("Error de conexión");
+                    return response.text();
+                })
+                .then(data => {
+                    btn.disabled = false;
+                    btnText.innerText = "Ejecutar de nuevo";
+                    spinner.style.display = "none";
+
+                    resultBox.classList.add('show');
+                    timeText.innerText = data;
+
+                    const match = data.match(/en (\d+) ms/);
+                    if (match) {
+                        const ms = parseInt(match[1]);
+                        contadorConsultas++;
+                        emptyHistory.style.display = "none";
+                        
+                        let tipoOrigen = "";
+                        let icono = "";
+                        
+                        if (ms > 100) {
+                            badge.className = "badge db";
+                            badge.innerHTML = "🗄️ Base de Datos";
+                            tipoOrigen = "Base de Datos";
+                            icono = "🗄️";
+                        } else {
+                            badge.className = "badge cache";
+                            badge.innerHTML = "🚀 Caché";
+                            tipoOrigen = "Caché";
+                            icono = "🚀";
+                        }
+                        
+                        badge.style.display = "inline-block";
+
+                        // Crear y añadir el nuevo elemento al historial
+                        const li = document.createElement('li');
+                        li.className = 'history-item';
+                        li.innerHTML = `
+                            <div class="history-details">
+                                <span class="history-icon">${icono}</span>
+                                <span>Intento #${contadorConsultas}</span>
+                            </div>
+                            <span class="history-time">${ms} ms</span>
+                        `;
+                        
+                        // Añadir al principio de la lista
+                        historyList.insertBefore(li, historyList.firstChild);
+                    }
+                })
+                .catch(error => {
+                    btn.disabled = false;
+                    btnText.innerText = "Reintentar";
+                    spinner.style.display = "none";
+                    resultBox.classList.add('show');
+                    timeText.innerHTML = `<span style="color: #EF4444;">Error de conexión. Revisa Spring Boot.</span>`;
+                });
+        }
+    </script>
+</body>
+</html>
